@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+enum Role {
+  ADMIN
+  HOSPITAL_ADMIN
+  DOCTOR
+  RECEPTIONIST
+  PATIENT
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum DoctorStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum PatientStatus {
+  PENDING
+  ACTIVE
+}
+
+enum AppointmentType {
+  VIDEO
+  AUDIO
+  CHAT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  INSURANCE
+  MOBILE_MONEY_AUTOMATED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum NotificationType {
+  REMINDER
+  ALERT
+  INFO
+}
+
+enum NotificationStatus {
+  SENT
+  READ
+}
+
+// MODELS
+
+model User {
+  id              String     @id @default(uuid())
+  fullName        String
+  email           String     @unique
+  password        String
+  phone           String
+  role            Role
+  status          UserStatus @default(PENDING)
+  isEmailVerified Boolean    @default(false) // <-- ADD THIS LINE
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relationships
+  adminForHospital    Hospital?      @relation("HospitalAdmin")
+  doctorProfile       Doctor?
+  receptionistProfile Receptionist?
+  patientProfile      Patient?
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Hospital {
+  id            String   @id @default(uuid())
+  name          String
+  licenseNumber String
+  address       String
+  contactEmail  String   @unique
+  contactPhone  String
+  createdAt     DateTime @default(now())
+
+  // Relationships
+  adminId       String         @unique
+  admin         User           @relation("HospitalAdmin", fields: [adminId], references: [id])
+  doctors       Doctor[]
+  receptionists Receptionist[]
+  patients      Patient[]
+  appointments  Appointment[]
+
+  @@map("hospitals")
+}
+
+model Doctor {
+  id              String       @id @default(uuid())
+  specialization  String
+  licenseNumber   String       @unique
+  availability    String? // e.g., "Mon-Fri 9am-5pm"
+  consultationFee Decimal
+  status          DoctorStatus @default(OFFLINE)
+  createdAt       DateTime     @default(now())
+
+  // Foreign Keys
+  userId     String @unique
+  hospitalId String
+
+  // Relationships
+  user         User          @relation(fields: [userId], references: [id])
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  appointments Appointment[]
+
+  @@map("doctors")
+}
+
+model Receptionist {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // Foreign Keys
+  userId     String @unique
+  hospitalId String
+
+  // Relationships
+  user         User          @relation(fields: [userId], references: [id])
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  appointments Appointment[]
+
+  @@map("receptionists")
+}
+
+model Patient {
+  id                String        @id @default(uuid())
+  dateOfBirth       DateTime
+  gender            Gender
+  bloodType         String?
+  medicalHistory    Json?
+  insuranceProvider String?
+  insuranceNumber   String?
+  status            PatientStatus @default(PENDING)
+  createdAt         DateTime      @default(now())
+
+  // Foreign Keys
+  userId     String  @unique
+  hospitalId String?
+
+  // Relationships
+  user         User          @relation(fields: [userId], references: [id])
+  hospital     Hospital?     @relation(fields: [hospitalId], references: [id])
+  appointments Appointment[]
+  payments     Payment[]
+
+  @@map("patients")
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  appointmentDate DateTime
+  type            AppointmentType
+  status          AppointmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+
+  // Foreign Keys
+  patientId      String
+  doctorId       String
+  hospitalId     String
+  receptionistId String?
+
+  // Relationships
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  receptionist Receptionist? @relation(fields: [receptionistId], references: [id])
+  consultation Consultation?
+  payment      Payment?
+
+  @@map("appointments")
+}
+
+model Consultation {
+  id               String          @id @default(uuid())
+  doctorNotes      String?         @db.Text
+  prescription     String?         @db.Text
+  consultationType AppointmentType
+  createdAt        DateTime        @default(now())
+
+  // Foreign Keys
+  appointmentId String @unique
+
+  // Relationships
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("consultations")
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  amount    Decimal
+  method    PaymentMethod
+  status    PaymentStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  // Foreign Keys
+  appointmentId  String  @unique
+  patientId      String
+  transactionRef String? @unique 
+
+  // Relationships
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  patient     Patient     @relation(fields: [patientId], references: [id])
+
+  @@map("payments")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  message   String
+  type      NotificationType
+  status    NotificationStatus @default(SENT)
+  createdAt DateTime           @default(now())
+
+  // Foreign Keys
+  userId String
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}

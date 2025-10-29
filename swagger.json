@@ -1,0 +1,1427 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Telemedicine Rwanda API",
+    "version": "1.0.0",
+    "description": "API documentation for the Telemedicine backend service.",
+    "contact": {
+      "name": "API Support",
+      "email": "support@telemed.rw"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5001",
+      "description": "Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT in the format: Bearer {token}"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/appointments": {
+      "post": {
+        "summary": "Create a new appointment",
+        "tags": [
+          "Appointments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Patient to book an appointment for themselves, or a Receptionist to book one for a patient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "patientId",
+                  "doctorId",
+                  "hospitalId",
+                  "appointmentDate",
+                  "type"
+                ],
+                "properties": {
+                  "patientId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the patient's profile."
+                  },
+                  "doctorId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the doctor's profile."
+                  },
+                  "hospitalId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the hospital where the appointment is."
+                  },
+                  "appointmentDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2024-08-20T14:30:00Z"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "VIDEO",
+                      "AUDIO",
+                      "CHAT"
+                    ],
+                    "example": "VIDEO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Appointment created successfully."
+          },
+          "403": {
+            "description": "Forbidden. You cannot book appointments for other patients."
+          }
+        }
+      },
+      "get": {
+        "summary": "List appointments",
+        "tags": [
+          "Appointments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves a list of appointments. The list is automatically filtered based on the user's role:\n- **Patient**: Sees their own appointments.\n- **Doctor**: Sees appointments assigned to them.\n- **Receptionist/Admin**: Sees all appointments for their hospital.\n",
+        "responses": {
+          "200": {
+            "description": "A list of appointments."
+          }
+        }
+      }
+    },
+    "/appointments/{id}/status": {
+      "patch": {
+        "summary": "Update an appointment's status",
+        "tags": [
+          "Appointments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Receptionist or Doctor to update the status of an appointment (e.g., confirm, cancel, complete).",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the appointment to update."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "PENDING",
+                      "CONFIRMED",
+                      "CANCELLED",
+                      "COMPLETED"
+                    ],
+                    "example": "CONFIRMED"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Appointment status updated successfully."
+          },
+          "403": {
+            "description": "Forbidden. Not authorized to change status."
+          },
+          "404": {
+            "description": "Appointment not found."
+          }
+        }
+      }
+    },
+    "/auth/complete-invitation": {
+      "post": {
+        "summary": "Complete an account setup from an invitation link",
+        "tags": [
+          "Auth"
+        ],
+        "description": "The final step for an invited user. They provide their details and the invitation token to create their account. The required fields depend on the role specified in the token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "fullName",
+                  "phone",
+                  "password"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The JWT received in the invitation email link."
+                  },
+                  "fullName": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "specialization": {
+                    "type": "string",
+                    "description": "Required if role is DOCTOR.",
+                    "example": "Pediatrics"
+                  },
+                  "licenseNumber": {
+                    "type": "string",
+                    "description": "Required if role is DOCTOR.",
+                    "example": "MD-12345"
+                  },
+                  "consultationFee": {
+                    "type": "number",
+                    "description": "Required if role is DOCTOR.",
+                    "example": 20000
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Required if role is PATIENT.",
+                    "example": "1995-07-20"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MALE",
+                      "FEMALE"
+                    ],
+                    "description": "Required if role is PATIENT."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created successfully."
+          },
+          "400": {
+            "description": "Invalid/expired token or missing required fields for the role."
+          },
+          "409": {
+            "description": "Email is already registered."
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Log in a user",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "403": {
+            "description": "Email not verified or account inactive"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current user profile",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Log out the user",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out successfully"
+          }
+        }
+      }
+    },
+    "/consultations": {
+      "post": {
+        "summary": "Record a new consultation",
+        "tags": [
+          "Consultations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Doctor to record the details of a completed appointment, such as notes and prescriptions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "doctorNotes": {
+                    "type": "string"
+                  },
+                  "prescription": {
+                    "type": "string"
+                  },
+                  "consultationType": {
+                    "type": "string",
+                    "enum": [
+                      "VIDEO",
+                      "AUDIO",
+                      "CHAT"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Consultation recorded successfully."
+          },
+          "403": {
+            "description": "Forbidden. User is not the assigned doctor."
+          },
+          "409": {
+            "description": "A consultation for this appointment already exists."
+          }
+        }
+      }
+    },
+    "/consultations/{id}": {
+      "get": {
+        "summary": "Get consultation details",
+        "tags": [
+          "Consultations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves the details of a specific consultation. Only accessible by the patient or doctor involved in the appointment.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the consultation record."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consultation details."
+          },
+          "403": {
+            "description": "Forbidden. Not authorized to view."
+          },
+          "404": {
+            "description": "Consultation not found."
+          }
+        }
+      }
+    },
+    "/doctors": {
+      "post": {
+        "summary": "Add a new doctor to a hospital",
+        "tags": [
+          "Doctors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Hospital Admin to register an existing user (with the 'DOCTOR' role) as a doctor for their hospital.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "hospitalId",
+                  "specialization",
+                  "licenseNumber",
+                  "consultationFee"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the user with the DOCTOR role."
+                  },
+                  "hospitalId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the hospital to which the doctor will be added."
+                  },
+                  "specialization": {
+                    "type": "string",
+                    "example": "Cardiology"
+                  },
+                  "licenseNumber": {
+                    "type": "string",
+                    "example": "MD-12345"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "example": "Mon-Fri, 9am-5pm"
+                  },
+                  "consultationFee": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Doctor added successfully."
+          },
+          "400": {
+            "description": "Invalid input or the specified user is not a doctor."
+          },
+          "403": {
+            "description": "Forbidden. User is not a Hospital Admin for the specified hospital."
+          },
+          "409": {
+            "description": "Conflict. This user is already a doctor or the license number is in use."
+          }
+        }
+      },
+      "get": {
+        "summary": "List all doctors",
+        "tags": [
+          "Doctors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves a list of all doctors. Can be filtered by hospital or specialization.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hospitalId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional. Filter doctors by a specific hospital UUID."
+          },
+          {
+            "in": "query",
+            "name": "specialization",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional. Filter doctors by their specialization (case-insensitive search)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of doctors."
+          }
+        }
+      }
+    },
+    "/doctors/{id}": {
+      "patch": {
+        "summary": "Update a doctor's information",
+        "tags": [
+          "Doctors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a doctor to update their own profile, or a Hospital Admin to update a doctor in their hospital.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the doctor profile to update."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "specialization": {
+                    "type": "string",
+                    "example": "General Medicine"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "example": "Mon, Wed, Fri, 10am-4pm"
+                  },
+                  "consultationFee": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 75.5
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "AVAILABLE",
+                      "BUSY",
+                      "OFFLINE"
+                    ],
+                    "example": "AVAILABLE"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Doctor profile updated successfully."
+          },
+          "403": {
+            "description": "Forbidden. User is not authorized to update this profile."
+          },
+          "404": {
+            "description": "Doctor profile not found."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a doctor from a hospital",
+        "tags": [
+          "Doctors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Hospital Admin to remove a doctor from their hospital. This does not delete the user account.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the doctor profile to remove."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Doctor removed successfully."
+          },
+          "403": {
+            "description": "Forbidden. User is not a Hospital Admin for this doctor's hospital."
+          },
+          "404": {
+            "description": "Doctor profile not found."
+          }
+        }
+      }
+    },
+    "/hospitals": {
+      "post": {
+        "summary": "Register a new hospital (Admin only)",
+        "tags": [
+          "Hospitals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "licenseNumber": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "contactEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "contactPhone": {
+                    "type": "string"
+                  },
+                  "adminId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "ID of an existing User with HOSPITAL_ADMIN role"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hospital registered successfully"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get a list of all hospitals",
+        "tags": [
+          "Hospitals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of hospitals"
+          }
+        }
+      }
+    },
+    "/hospitals/{id}": {
+      "get": {
+        "summary": "Get details of a specific hospital",
+        "tags": [
+          "Hospitals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hospital details"
+          },
+          "404": {
+            "description": "Hospital not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update hospital information (Admin or assigned Hospital Admin)",
+        "tags": [
+          "Hospitals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hospital updated successfully"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a hospital (Admin only)",
+        "tags": [
+          "Hospitals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Hospital deleted successfully"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "List current user's notifications",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves all notifications for the currently authenticated user.",
+        "responses": {
+          "200": {
+            "description": "A list of notifications."
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "summary": "Mark a notification as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Marks a specific notification as read for the current user.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the notification to mark as read."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification updated successfully."
+          },
+          "403": {
+            "description": "Forbidden. You can only mark your own notifications."
+          },
+          "404": {
+            "description": "Notification not found."
+          }
+        }
+      }
+    },
+    "/patients/{id}": {
+      "get": {
+        "summary": "Get a patient's profile",
+        "tags": [
+          "Patients"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves the detailed profile of a specific patient.\n- A Patient can only view their own profile.\n- A Receptionist or Doctor can view profiles of patients within their hospital.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the patient profile to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient profile data."
+          },
+          "403": {
+            "description": "Forbidden. You are not authorized to view this profile."
+          },
+          "404": {
+            "description": "Patient profile not found."
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a patient's profile",
+        "tags": [
+          "Patients"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Updates a patient's non-critical information.\n- A Patient can update their own profile.\n- A Receptionist can update a patient's profile.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the patient profile to update."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "1990-01-15"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MALE",
+                      "FEMALE",
+                      "OTHER"
+                    ]
+                  },
+                  "bloodType": {
+                    "type": "string",
+                    "example": "O+"
+                  },
+                  "medicalHistory": {
+                    "type": "object",
+                    "description": "A JSON object for storing medical history.",
+                    "example": {
+                      "allergies": [
+                        "penicillin"
+                      ],
+                      "conditions": [
+                        "hypertension"
+                      ]
+                    }
+                  },
+                  "insuranceProvider": {
+                    "type": "string",
+                    "example": "Radiant"
+                  },
+                  "insuranceNumber": {
+                    "type": "string",
+                    "example": "RAD-98765"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patient profile updated successfully."
+          },
+          "403": {
+            "description": "Forbidden. You are not authorized to update this profile."
+          },
+          "404": {
+            "description": "Patient profile not found."
+          }
+        }
+      }
+    },
+    "/payments/initiate": {
+      "post": {
+        "summary": "Initiate an automated mobile money payment for an appointment",
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Patient to start a payment process for a confirmed appointment. This triggers a push notification to their phone. The API response contains a paymentId that the client can use to listen for real-time updates via WebSockets.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "appointmentId",
+                  "phoneNumber"
+                ],
+                "properties": {
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the appointment to pay for."
+                  },
+                  "phoneNumber": {
+                    "type": "string",
+                    "example": "0781234567",
+                    "description": "The Rwandan mobile money number to charge."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment initiated successfully. The user should confirm the payment on their phone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "paymentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden. Not authorized."
+          },
+          "404": {
+            "description": "Appointment not found or does not belong to the user."
+          },
+          "409": {
+            "description": "Conflict. The appointment has already been paid for."
+          }
+        }
+      }
+    },
+    "/payments/webhook/paypack": {
+      "post": {
+        "summary": "Webhook for Paypack to send payment status updates",
+        "tags": [
+          "Payments"
+        ],
+        "description": "(For Paypack Use Only) This public endpoint receives real-time transaction status updates from Paypack. It is secured via signature verification.",
+        "requestBody": {
+          "description": "The webhook payload sent by Paypack.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "type": "string",
+                    "example": "transaction.updated"
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed successfully."
+          },
+          "401": {
+            "description": "Invalid signature."
+          },
+          "500": {
+            "description": "Error processing webhook."
+          }
+        }
+      }
+    },
+    "/payments": {
+      "post": {
+        "summary": "(Manual) Record a payment for an appointment",
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Receptionist to manually record a payment made via Cash, Insurance, or non-automated Mobile Money.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "example": 25000
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "CASH",
+                      "MOBILE_MONEY",
+                      "INSURANCE"
+                    ],
+                    "example": "CASH"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment recorded successfully."
+          },
+          "403": {
+            "description": "Forbidden. Not authorized."
+          },
+          "404": {
+            "description": "Appointment not found."
+          }
+        }
+      },
+      "get": {
+        "summary": "View payment history",
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves payment history. The results are automatically filtered based on the user's role (Patient sees own, Receptionist/Admin sees for their hospital).",
+        "responses": {
+          "200": {
+            "description": "A list of payments."
+          }
+        }
+      }
+    },
+    "/receptionists": {
+      "post": {
+        "summary": "Add a new receptionist to a hospital",
+        "tags": [
+          "Receptionists"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Hospital Admin to register an existing user (with the 'RECEPTIONIST' role) as a receptionist for their hospital.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "hospitalId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the user with the RECEPTIONIST role."
+                  },
+                  "hospitalId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The UUID of the hospital to which the receptionist will be added."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receptionist added successfully."
+          },
+          "403": {
+            "description": "Forbidden. User is not a Hospital Admin."
+          },
+          "409": {
+            "description": "Conflict. This user is already a receptionist."
+          }
+        }
+      },
+      "get": {
+        "summary": "List all receptionists for a hospital",
+        "tags": [
+          "Receptionists"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Hospital Admin to view all receptionists working at a specific hospital.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hospitalId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the hospital to retrieve receptionists for."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of receptionists for the hospital."
+          },
+          "403": {
+            "description": "Forbidden. User is not a Hospital Admin."
+          }
+        }
+      }
+    },
+    "/receptionists/patients/invite": {
+      "post": {
+        "summary": "Invite a new patient to the platform",
+        "tags": [
+          "Receptionists"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Allows a Receptionist to send an email invitation to a new patient, which contains a registration link.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "fullName",
+                  "phone"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "new.patient@example.com"
+                  },
+                  "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "0788123456"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patient invitation sent successfully."
+          },
+          "403": {
+            "description": "Forbidden. User is not a Receptionist."
+          },
+          "409": {
+            "description": "A user with this email already exists."
+          }
+        }
+      }
+    },
+    "/reports/hospital/{id}": {
+      "get": {
+        "summary": "Get a report for a specific hospital",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves key performance indicators for a single hospital, such as total appointments and earnings. Accessible by Admins and the hospital's own admin.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The UUID of the hospital."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hospital performance report."
+          },
+          "403": {
+            "description": "Forbidden."
+          }
+        }
+      }
+    },
+    "/reports/system": {
+      "get": {
+        "summary": "Get a system-wide report",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Retrieves platform-wide analytics. Accessible by Admins only.",
+        "responses": {
+          "200": {
+            "description": "System-wide analytics report."
+          },
+          "403": {
+            "description": "Forbidden."
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Appointments",
+      "description": "Scheduling and managing patient appointments."
+    },
+    {
+      "name": "Consultations",
+      "description": "Managing medical consultation records post-appointment."
+    },
+    {
+      "name": "Doctors",
+      "description": "Operations for managing doctors within the system."
+    },
+    {
+      "name": "Notifications",
+      "description": "Managing user notifications for system events like appointment reminders."
+    },
+    {
+      "name": "Patients",
+      "description": "Operations for viewing and managing patient profiles."
+    },
+    {
+      "name": "Payments",
+      "description": "Endpoints for recording and viewing consultation payments."
+    },
+    {
+      "name": "Receptionists",
+      "description": "Operations for managing receptionists and their actions, like inviting and approving patients."
+    },
+    {
+      "name": "Reports",
+      "description": "Endpoints for generating analytics and summary reports."
+    }
+  ]
+}
